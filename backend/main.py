@@ -8,6 +8,16 @@ from typing import Any, Dict, List, Optional
 from dotenv import load_dotenv
 import os
 from pathlib import Path
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # allow React frontend to call backend
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 
 env_path = Path(__file__).parent / ".env"
