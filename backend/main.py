@@ -267,6 +267,12 @@ async def summarize_all_hosts():
     
     return {"summaries": summaries}
 
+@app.get("/get_uploaded_data/")
+def get_uploaded_data():
+    if not HOSTS:
+        raise HTTPException(status_code=404, detail="No dataset uploaded")
+    return {"hosts": HOSTS, "count": len(HOSTS)}
+
 @app.get("/check_key/")
 def check_key():
     gemini_key = os.getenv("GEMINI_API_KEY")
