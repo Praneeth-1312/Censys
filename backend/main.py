@@ -10,13 +10,7 @@ import os
 from pathlib import Path
 from fastapi.middleware.cors import CORSMiddleware
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # allow React frontend to call backend
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+
 
 
 
@@ -25,6 +19,14 @@ load_dotenv(dotenv_path=env_path, override=True)
 
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # allow React frontend to call backend
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 HOSTS = []
 
@@ -235,6 +237,36 @@ async def summarize_host(payload: SummarizeRequest):
         "risk_level": structured["risk_level"],
         "summary": summary_text,
     }
+
+@app.get("/summarize_all/")
+async def summarize_all_hosts():
+    if not HOSTS:
+        raise HTTPException(status_code=404, detail="No dataset uploaded")
+    
+    summaries = []
+    for host in HOSTS:
+        ip = host.get("ip") or host.get("ip_address") or host.get("ipv4") or host.get("ipv6")
+        services = _extract_services(host)
+        location = _extract_location(host)
+        vulnerabilities = _extract_vulns(host)
+        risk_level = _compute_risk_level(services, vulnerabilities)
+
+        structured = {
+            "ip": ip,
+            "location": location,
+            "services": services,
+            "vulnerabilities": vulnerabilities,
+            "risk_level": risk_level,
+        }
+
+        summary_text = await _generate_summary_text(structured)
+        summaries.append({
+            "ip": ip,
+            "summary": summary_text
+        })
+    
+    return {"summaries": summaries}
+
 @app.get("/check_key/")
 def check_key():
     gemini_key = os.getenv("GEMINI_API_KEY")
