@@ -1,24 +1,36 @@
 
 
-from fastapi import FastAPI
-from fastapi import UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, status
+from fastapi.responses import JSONResponse
 import json
-from pydantic import BaseModel
-from typing import Any, Dict, List, Optional
+from pydantic import BaseModel, Field, field_validator
+from typing import Any, Dict, List, Optional, Union
 from dotenv import load_dotenv
 import os
 from pathlib import Path
 from fastapi.middleware.cors import CORSMiddleware
+import logging
+from datetime import datetime
+import traceback
 
 
 
 
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 env_path = Path(__file__).parent / ".env"
 load_dotenv(dotenv_path=env_path, override=True)
 
-
-app = FastAPI()
+app = FastAPI(
+    title="Censys Host Summarization API",
+    description="API for analyzing and summarizing host data from Censys datasets",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -28,18 +40,111 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Global state
 HOSTS = []
+UPLOAD_TIMESTAMP = None
+
+# Pydantic Models
+class SummarizeRequest(BaseModel):
+    ip: str = Field(..., description="IP address to summarize", min_length=7, max_length=45)
+    
+    @field_validator('ip')
+    @classmethod
+    def validate_ip(cls, v):
+        # Basic IP validation
+        parts = v.split('.')
+        if len(parts) == 4:
+            try:
+                for part in parts:
+                    if not 0 <= int(part) <= 255:
+                        raise ValueError("Invalid IP address")
+                return v
+            except ValueError:
+                pass
+        # For IPv6 or other formats, just check it's not empty
+        if not v.strip():
+            raise ValueError("IP address cannot be empty")
+        return v.strip()
+
+class HostSummary(BaseModel):
+    ip: str
+    location: Dict[str, Any]
+    services: List[Dict[str, Any]]
+    vulnerabilities: List[Dict[str, Any]]
+    risk_level: str
+    summary: str
+
+class BatchSummaryResponse(BaseModel):
+    summaries: List[Dict[str, str]]
+    total_hosts: int
+    processing_time: float
+
+class UploadResponse(BaseModel):
+    status: str
+    hosts_loaded: int
+    upload_timestamp: str
+    file_name: str
+
+class ErrorResponse(BaseModel):
+    error: str
+    detail: Optional[str] = None
+    timestamp: str
+
+# Global exception handler
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    logger.error(f"Unhandled exception: {str(exc)}")
+    logger.error(traceback.format_exc())
+    return JSONResponse(
+        status_code=500,
+        content=ErrorResponse(
+            error="Internal server error",
+            detail=str(exc) if app.debug else "An unexpected error occurred",
+            timestamp=datetime.now().isoformat()
+        ).dict()
+    )
 
 @app.get("/")
 def read_root():
-    return {"message": "Censys Summarization Agent Backend is running"}
+    return {
+        "message": "Censys Summarization Agent Backend is running",
+        "version": "1.0.0",
+        "timestamp": datetime.now().isoformat()
+    }
 
-@app.post("/upload_dataset/")
+@app.get("/health")
+def health_check():
+    return {
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat(),
+        "hosts_loaded": len(HOSTS),
+        "last_upload": UPLOAD_TIMESTAMP
+    }
+
+@app.post("/upload_dataset/", response_model=UploadResponse)
 async def upload_dataset(file: UploadFile = File(...)):
+    global HOSTS, UPLOAD_TIMESTAMP
+    
     try:
+        # Validate file
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="No file provided")
+        
+        if not file.filename.lower().endswith('.json'):
+            raise HTTPException(status_code=400, detail="File must be a JSON file")
+        
+        # Check file size (10MB limit)
         content = await file.read()
-        data = json.loads(content)
+        if len(content) > 10 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="File too large (max 10MB)")
+        
+        # Parse JSON
+        try:
+            data = json.loads(content)
+        except json.JSONDecodeError as e:
+            raise HTTPException(status_code=400, detail=f"Invalid JSON: {str(e)}")
 
+        # Extract hosts from various JSON structures
         if isinstance(data, list):
             hosts = data
         elif isinstance(data, dict):
@@ -48,20 +153,51 @@ async def upload_dataset(file: UploadFile = File(...)):
             elif all(isinstance(v, dict) for v in data.values()):
                 hosts = list(data.values())
             else:
-                raise ValueError("JSON structure not recognized. Provide a list of hosts or an object with 'hosts' list.")
+                raise HTTPException(
+                    status_code=400, 
+                    detail="JSON structure not recognized. Provide a list of hosts or an object with 'hosts' list."
+                )
         else:
-            raise ValueError("JSON root must be a list or object.")
+            raise HTTPException(status_code=400, detail="JSON root must be a list or object.")
 
-        global HOSTS
-        HOSTS = hosts
-        return {"status": "success", "hosts_loaded": len(HOSTS)}
-    except json.JSONDecodeError as e:
-        raise HTTPException(status_code=400, detail=f"Invalid JSON: {str(e)}")
+        # Validate hosts structure
+        if not hosts:
+            raise HTTPException(status_code=400, detail="No hosts found in dataset")
+        
+        # Basic validation of host structure
+        valid_hosts = []
+        for i, host in enumerate(hosts):
+            if not isinstance(host, dict):
+                logger.warning(f"Skipping invalid host at index {i}: not a dictionary")
+                continue
+            # Check for at least one IP field
+            ip_fields = ["ip", "ip_address", "ipv4", "ipv6"]
+            if not any(host.get(field) for field in ip_fields):
+                logger.warning(f"Skipping host at index {i}: no IP address found")
+                continue
+            valid_hosts.append(host)
+        
+        if not valid_hosts:
+            raise HTTPException(status_code=400, detail="No valid hosts found in dataset")
+
+        HOSTS = valid_hosts
+        UPLOAD_TIMESTAMP = datetime.now().isoformat()
+        
+        logger.info(f"Successfully uploaded dataset: {len(HOSTS)} hosts from {file.filename}")
+        
+        return UploadResponse(
+            status="success",
+            hosts_loaded=len(HOSTS),
+            upload_timestamp=UPLOAD_TIMESTAMP,
+            file_name=file.filename
+        )
+        
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-class SummarizeRequest(BaseModel):
-    ip: str
+        logger.error(f"Upload error: {str(e)}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 def _find_host_by_ip(ip: str) -> Optional[Dict[str, Any]]:
     for host in HOSTS:
@@ -345,6 +481,9 @@ async def _generate_summary_text(structured: Dict[str, Any]) -> str:
                 txt = (resp.text or "").strip()
                 print("Gemini response:", txt)
                 if txt:
+                    # Remove "Host: " prefix if it exists
+                    if txt.startswith("Host: "):
+                        txt = txt[6:]  # Remove "Host: " (6 characters)
                     return txt
             except Exception as e:
                 print("Gemini error:", e)
@@ -380,6 +519,9 @@ async def _generate_summary_text(structured: Dict[str, Any]) -> str:
                 resp = client.chat.completions.create(model="gpt-4o-mini", messages=messages, temperature=0.2)
                 txt = resp.choices[0].message.content.strip()
                 if txt:
+                    # Remove "Host: " prefix if it exists
+                    if txt.startswith("Host: "):
+                        txt = txt[6:]  # Remove "Host: " (6 characters)
                     return txt
             except Exception:
                 pass
@@ -557,68 +699,18 @@ async def _generate_summary_text(structured: Dict[str, Any]) -> str:
 
     return "\n".join(lines)
 
-@app.post("/summarize_host/")
+@app.post("/summarize_host/", response_model=HostSummary)
 async def summarize_host(payload: SummarizeRequest):
-    host = _find_host_by_ip(payload.ip)
-    if not host:
-        raise HTTPException(status_code=404, detail="Host not found")
-
-    services = _extract_services(host)
-    location = _extract_location(host)
-    vulnerabilities = _extract_vulns(host)
-    org_asn = _extract_org_asn(host)
-    os_name = _extract_os(host)
-    cloud_provider = _extract_cloud_provider(host)
-    threat = _extract_threat(host)
-    computed = _compute_risk_with_reason(services, vulnerabilities, threat)
-    risk_level = (threat.get("risk_level") if isinstance(threat, dict) else None) or computed.get("level")
-    # Focused override: certain malware/C2 indicators should be Critical
-    try:
-        labels = (threat or {}).get("labels") or []
-        malware = (threat or {}).get("malware_families") or []
-        label_set = {str(l).strip().upper() for l in labels if isinstance(l, str)}
-        malware_set = {str(m).strip().upper() for m in malware if isinstance(m, str)}
-        c2_indicators = {"C2", "COMMAND_AND_CONTROL", "REMOTE_ACCESS", "RAT"}
-        if ("COBALT STRIKE" in malware_set) or (label_set & c2_indicators):
-            risk_level = "Critical"
-    except Exception:
-        pass
-
-    structured = {
-        "ip": payload.ip,
-        "location": location,
-        "services": services,
-        "vulnerabilities": vulnerabilities,
-        "risk_level": risk_level,
-        "risk_reason": computed.get("reason"),
-        "organization": org_asn.get("organization"),
-        "asn": org_asn.get("asn"),
-        "asn_name": org_asn.get("asn_name"),
-        "asn_country_code": (host.get("autonomous_system") or {}).get("country_code") if isinstance(host.get("autonomous_system"), dict) else None,
-        "os": os_name,
-        "cloud_provider": cloud_provider,
-        "threat_intel": {"labels": threat.get("labels"), "malware_families": threat.get("malware_families")},
-    }
-
-    summary_text = await _generate_summary_text(structured)
-
-    return {
-        "ip": structured["ip"],
-        "location": structured["location"],
-        "services": structured["services"],
-        "vulnerabilities": structured["vulnerabilities"],
-        "risk_level": structured["risk_level"],
-        "summary": summary_text,
-    }
-
-@app.get("/summarize_all/")
-async def summarize_all_hosts():
     if not HOSTS:
         raise HTTPException(status_code=404, detail="No dataset uploaded")
     
-    summaries = []
-    for host in HOSTS:
-        ip = host.get("ip") or host.get("ip_address") or host.get("ipv4") or host.get("ipv6")
+    try:
+        host = _find_host_by_ip(payload.ip)
+        if not host:
+            raise HTTPException(status_code=404, detail=f"Host {payload.ip} not found in dataset")
+
+        logger.info(f"Summarizing host: {payload.ip}")
+        
         services = _extract_services(host)
         location = _extract_location(host)
         vulnerabilities = _extract_vulns(host)
@@ -628,6 +720,7 @@ async def summarize_all_hosts():
         threat = _extract_threat(host)
         computed = _compute_risk_with_reason(services, vulnerabilities, threat)
         risk_level = (threat.get("risk_level") if isinstance(threat, dict) else None) or computed.get("level")
+        
         # Focused override: certain malware/C2 indicators should be Critical
         try:
             labels = (threat or {}).get("labels") or []
@@ -641,7 +734,7 @@ async def summarize_all_hosts():
             pass
 
         structured = {
-            "ip": ip,
+            "ip": payload.ip,
             "location": location,
             "services": services,
             "vulnerabilities": vulnerabilities,
@@ -657,20 +750,160 @@ async def summarize_all_hosts():
         }
 
         summary_text = await _generate_summary_text(structured)
-        summaries.append({
-            "ip": ip,
-            "summary": summary_text
-        })
+
+        return HostSummary(
+            ip=structured["ip"],
+            location=structured["location"],
+            services=structured["services"],
+            vulnerabilities=structured["vulnerabilities"],
+            risk_level=structured["risk_level"],
+            summary=summary_text,
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error summarizing host {payload.ip}: {str(e)}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Failed to summarize host: {str(e)}")
+
+@app.get("/summarize_all/", response_model=BatchSummaryResponse)
+async def summarize_all_hosts():
+    if not HOSTS:
+        raise HTTPException(status_code=404, detail="No dataset uploaded")
     
-    return {"summaries": summaries}
+    start_time = datetime.now()
+    summaries = []
+    
+    try:
+        logger.info(f"Starting batch summarization for {len(HOSTS)} hosts")
+        
+        for i, host in enumerate(HOSTS):
+            try:
+                ip = host.get("ip") or host.get("ip_address") or host.get("ipv4") or host.get("ipv6")
+                if not ip:
+                    logger.warning(f"Skipping host at index {i}: no IP address found")
+                    continue
+                    
+                services = _extract_services(host)
+                location = _extract_location(host)
+                vulnerabilities = _extract_vulns(host)
+                org_asn = _extract_org_asn(host)
+                os_name = _extract_os(host)
+                cloud_provider = _extract_cloud_provider(host)
+                threat = _extract_threat(host)
+                computed = _compute_risk_with_reason(services, vulnerabilities, threat)
+                risk_level = (threat.get("risk_level") if isinstance(threat, dict) else None) or computed.get("level")
+                
+                # Focused override: certain malware/C2 indicators should be Critical
+                try:
+                    labels = (threat or {}).get("labels") or []
+                    malware = (threat or {}).get("malware_families") or []
+                    label_set = {str(l).strip().upper() for l in labels if isinstance(l, str)}
+                    malware_set = {str(m).strip().upper() for m in malware if isinstance(m, str)}
+                    c2_indicators = {"C2", "COMMAND_AND_CONTROL", "REMOTE_ACCESS", "RAT"}
+                    if ("COBALT STRIKE" in malware_set) or (label_set & c2_indicators):
+                        risk_level = "Critical"
+                except Exception:
+                    pass
+
+                structured = {
+                    "ip": ip,
+                    "location": location,
+                    "services": services,
+                    "vulnerabilities": vulnerabilities,
+                    "risk_level": risk_level,
+                    "risk_reason": computed.get("reason"),
+                    "organization": org_asn.get("organization"),
+                    "asn": org_asn.get("asn"),
+                    "asn_name": org_asn.get("asn_name"),
+                    "asn_country_code": (host.get("autonomous_system") or {}).get("country_code") if isinstance(host.get("autonomous_system"), dict) else None,
+                    "os": os_name,
+                    "cloud_provider": cloud_provider,
+                    "threat_intel": {"labels": threat.get("labels"), "malware_families": threat.get("malware_families")},
+                }
+
+                summary_text = await _generate_summary_text(structured)
+                summaries.append({
+                    "ip": ip,
+                    "summary": summary_text
+                })
+                
+                # Log progress every 10 hosts
+                if (i + 1) % 10 == 0:
+                    logger.info(f"Processed {i + 1}/{len(HOSTS)} hosts")
+                    
+            except Exception as e:
+                logger.error(f"Error processing host at index {i}: {str(e)}")
+                # Continue with other hosts even if one fails
+                continue
+        
+        end_time = datetime.now()
+        processing_time = (end_time - start_time).total_seconds()
+        
+        logger.info(f"Batch summarization completed: {len(summaries)} summaries in {processing_time:.2f} seconds")
+        
+        return BatchSummaryResponse(
+            summaries=summaries,
+            total_hosts=len(summaries),
+            processing_time=processing_time
+        )
+        
+    except Exception as e:
+        logger.error(f"Batch summarization error: {str(e)}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Batch summarization failed: {str(e)}")
 
 @app.get("/get_uploaded_data/")
 def get_uploaded_data():
     if not HOSTS:
         raise HTTPException(status_code=404, detail="No dataset uploaded")
-    return {"hosts": HOSTS, "count": len(HOSTS)}
+    return {
+        "hosts": HOSTS, 
+        "count": len(HOSTS),
+        "upload_timestamp": UPLOAD_TIMESTAMP
+    }
 
 @app.get("/check_key/")
 def check_key():
     gemini_key = os.getenv("GEMINI_API_KEY")
-    return {"GEMINI_API_KEY": gemini_key}
+    openai_key = os.getenv("OPENAI_API_KEY")
+    return {
+        "GEMINI_API_KEY": gemini_key is not None,
+        "OPENAI_API_KEY": openai_key is not None,
+        "has_any_key": (gemini_key is not None) or (openai_key is not None)
+    }
+
+@app.get("/stats/")
+def get_stats():
+    """Get statistics about the loaded dataset"""
+    if not HOSTS:
+        raise HTTPException(status_code=404, detail="No dataset uploaded")
+    
+    # Calculate basic statistics
+    total_hosts = len(HOSTS)
+    risk_levels = {}
+    service_counts = []
+    vulnerability_counts = []
+    
+    for host in HOSTS:
+        # Count risk levels
+        services = _extract_services(host)
+        vulnerabilities = _extract_vulns(host)
+        threat = _extract_threat(host)
+        computed = _compute_risk_with_reason(services, vulnerabilities, threat)
+        risk_level = (threat.get("risk_level") if isinstance(threat, dict) else None) or computed.get("level")
+        
+        risk_levels[risk_level] = risk_levels.get(risk_level, 0) + 1
+        service_counts.append(len(services))
+        vulnerability_counts.append(len(vulnerabilities))
+    
+    return {
+        "total_hosts": total_hosts,
+        "risk_distribution": risk_levels,
+        "avg_services_per_host": sum(service_counts) / len(service_counts) if service_counts else 0,
+        "avg_vulnerabilities_per_host": sum(vulnerability_counts) / len(vulnerability_counts) if vulnerability_counts else 0,
+        "max_services": max(service_counts) if service_counts else 0,
+        "max_vulnerabilities": max(vulnerability_counts) if vulnerability_counts else 0,
+        "upload_timestamp": UPLOAD_TIMESTAMP
+    }

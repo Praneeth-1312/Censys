@@ -1,0 +1,67 @@
+{
+  "name": "frontend-tests",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.8.0",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^13.5.0",
+    "axios": "^1.12.2",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "react-scripts": "5.0.1",
+    "web-vitals": "^2.1.4"
+  },
+  "scripts": {
+    "test": "react-scripts test",
+    "test:coverage": "react-scripts test --coverage --watchAll=false"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "jest": {
+    "testEnvironment": "jsdom",
+    "setupFilesAfterEnv": ["<rootDir>/setupTests.js"],
+    "moduleNameMapping": {
+      "^@/(.*)$": "<rootDir>/../../frontend/src/$1"
+    },
+    "testMatch": [
+      "<rootDir>/__tests__/**/*.test.js",
+      "<rootDir>/__tests__/**/*.test.jsx",
+      "<rootDir>/__tests__/**/*.spec.js",
+      "<rootDir>/__tests__/**/*.spec.jsx"
+    ],
+    "collectCoverage": true,
+    "coverageDirectory": "<rootDir>/../../coverage",
+    "coverageReporters": ["text", "lcov", "html"],
+    "collectCoverageFrom": [
+      "<rootDir>/../../frontend/src/**/*.{js,jsx}",
+      "!<rootDir>/../../frontend/src/index.js",
+      "!<rootDir>/../../frontend/src/reportWebVitals.js",
+      "!<rootDir>/../../frontend/src/setupTests.js"
+    ],
+    "transform": {
+      "^.+\\.(js|jsx)$": "babel-jest"
+    },
+    "moduleFileExtensions": ["js", "jsx", "json"],
+    "clearMocks": true,
+    "verbose": true
+  }
+}
+

@@ -1,0 +1,124 @@
+[
+  {
+    "ip": "192.168.1.100",
+    "ip_address": "192.168.1.100",
+    "location": {
+      "country": "United States",
+      "city": "New York",
+      "region": "NY"
+    },
+    "autonomous_system": {
+      "asn": 12345,
+      "name": "Example ISP",
+      "country_code": "US"
+    },
+    "services": [
+      {
+        "port": 22,
+        "service": "ssh",
+        "product": "OpenSSH 8.2",
+        "banner": "SSH-2.0-OpenSSH_8.2"
+      },
+      {
+        "port": 80,
+        "service": "http",
+        "product": "Apache 2.4.41",
+        "banner": "Apache/2.4.41 (Ubuntu)"
+      },
+      {
+        "port": 443,
+        "service": "https",
+        "product": "Apache 2.4.41",
+        "banner": "Apache/2.4.41 (Ubuntu)"
+      }
+    ],
+    "vulnerabilities": [
+      {
+        "id": "CVE-2021-44228",
+        "severity": "Critical",
+        "cvss_score": 10.0,
+        "description": "Log4j vulnerability"
+      }
+    ],
+    "threat_intelligence": {
+      "security_labels": ["malware", "c2"],
+      "risk_level": "High",
+      "malware_families": ["Cobalt Strike"]
+    }
+  },
+  {
+    "ip": "10.0.0.50",
+    "ip_address": "10.0.0.50",
+    "location": {
+      "country": "Canada",
+      "city": "Toronto",
+      "region": "ON"
+    },
+    "autonomous_system": {
+      "asn": 67890,
+      "name": "Canadian Telecom",
+      "country_code": "CA"
+    },
+    "services": [
+      {
+        "port": 22,
+        "service": "ssh",
+        "product": "OpenSSH 7.4",
+        "banner": "SSH-2.0-OpenSSH_7.4"
+      },
+      {
+        "port": 3306,
+        "service": "mysql",
+        "product": "MySQL 5.7.30",
+        "banner": "5.7.30-0ubuntu0.18.04.1"
+      }
+    ],
+    "vulnerabilities": [
+      {
+        "id": "CVE-2020-1472",
+        "severity": "Critical",
+        "cvss_score": 9.8,
+        "description": "Netlogon vulnerability"
+      },
+      {
+        "id": "CVE-2019-0708",
+        "severity": "Critical",
+        "cvss_score": 9.8,
+        "description": "BlueKeep vulnerability"
+      }
+    ],
+    "threat_intelligence": {
+      "security_labels": ["botnet"],
+      "risk_level": "Medium",
+      "malware_families": []
+    }
+  },
+  {
+    "ip": "172.16.0.25",
+    "ip_address": "172.16.0.25",
+    "location": {
+      "country": "United Kingdom",
+      "city": "London",
+      "region": "England"
+    },
+    "autonomous_system": {
+      "asn": 11111,
+      "name": "UK Internet Provider",
+      "country_code": "GB"
+    },
+    "services": [
+      {
+        "port": 80,
+        "service": "http",
+        "product": "nginx 1.18.0",
+        "banner": "nginx/1.18.0"
+      }
+    ],
+    "vulnerabilities": [],
+    "threat_intelligence": {
+      "security_labels": [],
+      "risk_level": "Low",
+      "malware_families": []
+    }
+  }
+]

@@ -9,23 +9,51 @@ export const apiClient = {
     
     const response = await axios.post(API_ENDPOINTS.UPLOAD_DATASET, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 30000, // 30 second timeout for file uploads
     });
     
     return response.data;
   },
 
   getUploadedData: async () => {
-    const response = await axios.get(API_ENDPOINTS.GET_UPLOADED_DATA);
+    const response = await axios.get(API_ENDPOINTS.GET_UPLOADED_DATA, {
+      timeout: 10000,
+    });
     return response.data;
   },
 
   summarizeHost: async (ip) => {
-    const response = await axios.post(API_ENDPOINTS.SUMMARIZE_HOST, { ip });
+    const response = await axios.post(API_ENDPOINTS.SUMMARIZE_HOST, { ip }, {
+      timeout: 60000, // 60 second timeout for AI processing
+    });
     return response.data;
   },
 
   summarizeAllHosts: async () => {
-    const response = await axios.get(API_ENDPOINTS.SUMMARIZE_ALL);
+    const response = await axios.get(API_ENDPOINTS.SUMMARIZE_ALL, {
+      timeout: 300000, // 5 minute timeout for batch processing
+    });
+    return response.data;
+  },
+
+  healthCheck: async () => {
+    const response = await axios.get(API_ENDPOINTS.HEALTH_CHECK, {
+      timeout: 5000,
+    });
+    return response.data;
+  },
+
+  checkApiKeys: async () => {
+    const response = await axios.get(API_ENDPOINTS.CHECK_KEY, {
+      timeout: 5000,
+    });
+    return response.data;
+  },
+
+  getStats: async () => {
+    const response = await axios.get(API_ENDPOINTS.STATS, {
+      timeout: 10000,
+    });
     return response.data;
   },
 };
@@ -34,8 +62,30 @@ export const apiClient = {
 export const handleApiError = (error, defaultMessage) => {
   console.error('API Error:', error);
   
+  // Handle network errors
+  if (error.code === 'ECONNABORTED') {
+    return 'Request timeout - please try again';
+  }
+  
+  if (error.code === 'NETWORK_ERROR' || !error.response) {
+    return 'Network error - please check your connection';
+  }
+  
+  // Handle HTTP errors
   if (error.response?.data?.detail) {
     return error.response.data.detail;
+  }
+  
+  if (error.response?.data?.error) {
+    return error.response.data.error;
+  }
+  
+  if (error.response?.status === 404) {
+    return 'Resource not found';
+  }
+  
+  if (error.response?.status === 500) {
+    return 'Server error - please try again later';
   }
   
   if (error.message) {

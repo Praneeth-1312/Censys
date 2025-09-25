@@ -7,6 +7,9 @@ export const API_ENDPOINTS = {
   GET_UPLOADED_DATA: `${API_BASE_URL}/get_uploaded_data/`,
   SUMMARIZE_HOST: `${API_BASE_URL}/summarize_host/`,
   SUMMARIZE_ALL: `${API_BASE_URL}/summarize_all/`,
+  HEALTH_CHECK: `${API_BASE_URL}/health`,
+  CHECK_KEY: `${API_BASE_URL}/check_key/`,
+  STATS: `${API_BASE_URL}/stats/`,
 };
 
 // UI Constants

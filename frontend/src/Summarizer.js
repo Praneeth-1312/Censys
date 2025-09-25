@@ -1,13 +1,12 @@
 import React, { useState } from "react";
 import axios from "axios";
 
-function Summarizer() {
+function Summarizer({ hasDataset = false }) {
   const [host, setHost] = useState("");
   const [summary, setSummary] = useState("");
   const [allSummaries, setAllSummaries] = useState([]);
   const [loading, setLoading] = useState(false);
   const [batchLoading, setBatchLoading] = useState(false);
-  const [hasDataset, setHasDataset] = useState(false);
   const [showResetMessage, setShowResetMessage] = useState(false);
 
   // Reset all state when component mounts (when new dataset is uploaded)
@@ -21,17 +20,6 @@ function Summarizer() {
     // Show reset message briefly
     setShowResetMessage(true);
     const timer = setTimeout(() => setShowResetMessage(false), 2000);
-    
-    // Check if dataset is available
-    const checkDataset = async () => {
-      try {
-        const response = await axios.get("http://127.0.0.1:8000/get_uploaded_data/");
-        setHasDataset(true);
-      } catch (error) {
-        setHasDataset(false);
-      }
-    };
-    checkDataset();
     
     return () => clearTimeout(timer);
   }, []);
@@ -64,41 +52,6 @@ function Summarizer() {
     setBatchLoading(false);
   };
 
-  if (!hasDataset) {
-    return (
-      <div style={{ padding: "0", fontFamily: "inherit" }}>
-        <div style={{ 
-          background: "linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)",
-          border: "2px dashed #cbd5e1", 
-          borderRadius: "12px", 
-          padding: "40px 24px", 
-          textAlign: "center",
-          transition: "all 0.3s ease"
-        }}>
-          <div style={{
-            fontSize: "3rem",
-            marginBottom: "16px"
-          }}>📊</div>
-          <h3 style={{
-            margin: "0 0 8px 0",
-            fontSize: "1.5rem",
-            fontWeight: "600",
-            color: "#475569"
-          }}>
-            Host Summarization Ready
-          </h3>
-          <p style={{ 
-            color: "#64748b", 
-            margin: "0",
-            fontSize: "1rem",
-            lineHeight: "1.5"
-          }}>
-            Upload a JSON dataset above to enable host summarization features
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div style={{ padding: "0", fontFamily: "inherit" }}>
@@ -251,8 +204,7 @@ function Summarizer() {
               margin: "0",
               lineHeight: "1.6",
               color: "#4b5563",
-              fontSize: "14px",
-              whiteSpace: "pre-wrap"
+              fontSize: "14px"
             }}>
               {summary}
             </p>
@@ -398,13 +350,11 @@ function Summarizer() {
                       Host: {item.ip}
                     </strong>
                   </div>
-                  {/* Metadata grid removed per request */}
                   <p style={{ 
                     margin: "0",
                     lineHeight: "1.5",
                     color: "#4b5563",
-                    fontSize: "13px",
-                    whiteSpace: "pre-wrap"
+                    fontSize: "13px"
                   }}>
                     {item.summary}
                   </p>
