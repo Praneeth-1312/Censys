@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { apiClient, handleApiError, validateFile } from "./utils";
-import { MESSAGES, UI_CONSTANTS } from "./constants";
-import { Button, Input, Alert } from "./components/UI";
+import { MESSAGES } from "./constants";
+import "./UploadDataset.css";
 
 const UploadDataset = ({ onUploadAttempt, onUploadSuccess, resetTrigger }) => {
   const [file, setFile] = useState(null);
@@ -59,78 +59,42 @@ const UploadDataset = ({ onUploadAttempt, onUploadSuccess, resetTrigger }) => {
     }
   }, [file, onUploadSuccess]);
 
-  const containerStyles = {
-    display: "flex",
-    alignItems: "center",
-    gap: UI_CONSTANTS.SPACING.XL,
-    marginBottom: UI_CONSTANTS.SPACING.LG,
-    flexWrap: "wrap"
-  };
-
-  const fileInputContainerStyles = {
-    flex: "1",
-    minWidth: "280px",
-    maxWidth: "400px"
-  };
-
-  const buttonContainerStyles = {
-    flexShrink: "0"
-  };
-
-  const fileInfoStyles = {
-    marginTop: UI_CONSTANTS.SPACING.SM,
-    padding: UI_CONSTANTS.SPACING.SM + ' ' + UI_CONSTANTS.SPACING.MD,
-    backgroundColor: isUploaded ? UI_CONSTANTS.COLORS.GRAY[50] : UI_CONSTANTS.COLORS.GRAY[100],
-    border: `1px solid ${isUploaded ? UI_CONSTANTS.COLORS.SUCCESS : UI_CONSTANTS.COLORS.GRAY[300]}`,
-    borderRadius: UI_CONSTANTS.BORDER_RADIUS.SM,
-    fontSize: '13px',
-    color: UI_CONSTANTS.COLORS.GRAY[700],
-    display: 'flex',
-    alignItems: 'center',
-    gap: UI_CONSTANTS.SPACING.SM
-  };
-
   return (
     <div>
-      <div style={containerStyles}>
-        <div style={fileInputContainerStyles}>
-          <Input
+      <div className="upload-container">
+        <div className="file-input-container">
+          <input
             ref={fileInputRef}
             type="file"
             accept=".json"
             onChange={handleFileChange}
+            className="file-input"
             disabled={isLoading}
           />
         </div>
-        <div style={buttonContainerStyles}>
-          <Button
+        <div className="button-container">
+          <button
             onClick={handleUpload}
             disabled={!file || isLoading}
-            loading={isLoading}
-            variant="primary"
-            size="md"
+            className={`upload-button ${isLoading ? 'loading' : ''}`}
           >
-            {file ? MESSAGES.UPLOAD.UPLOAD_BUTTON : MESSAGES.UPLOAD.NO_FILE}
-          </Button>
+            {isLoading ? '⏳ Uploading...' : (file ? MESSAGES.UPLOAD.UPLOAD_BUTTON : MESSAGES.UPLOAD.NO_FILE)}
+          </button>
         </div>
       </div>
       
       {/* File Information */}
       {file && (
-        <div style={fileInfoStyles}>
+        <div className={`file-info ${isUploaded ? 'uploaded' : ''}`}>
           <span>{isUploaded ? '✅' : '📄'}</span>
-          <span style={{ fontWeight: '500' }}>
+          <span className="file-name">
             {file.name}
           </span>
-          <span style={{ color: UI_CONSTANTS.COLORS.GRAY[500] }}>
+          <span className="file-size">
             ({(file.size / 1024).toFixed(1)} KB)
           </span>
           {isUploaded && (
-            <span style={{ 
-              color: UI_CONSTANTS.COLORS.SUCCESS, 
-              fontWeight: '600',
-              marginLeft: 'auto'
-            }}>
+            <span className="upload-status">
               Uploaded Successfully
             </span>
           )}
@@ -138,9 +102,9 @@ const UploadDataset = ({ onUploadAttempt, onUploadSuccess, resetTrigger }) => {
       )}
       
       {message && (
-        <Alert type={isUploaded ? "success" : "error"}>
+        <div className={`alert ${isUploaded ? 'success' : 'error'}`}>
           {message}
-        </Alert>
+        </div>
       )}
     </div>
   );
