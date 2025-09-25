@@ -251,7 +251,8 @@ function Summarizer() {
               margin: "0",
               lineHeight: "1.6",
               color: "#4b5563",
-              fontSize: "14px"
+              fontSize: "14px",
+              whiteSpace: "pre-wrap"
             }}>
               {summary}
             </p>
@@ -397,11 +398,13 @@ function Summarizer() {
                       Host: {item.ip}
                     </strong>
                   </div>
+                  {/* Metadata grid removed per request */}
                   <p style={{ 
                     margin: "0",
                     lineHeight: "1.5",
                     color: "#4b5563",
-                    fontSize: "13px"
+                    fontSize: "13px",
+                    whiteSpace: "pre-wrap"
                   }}>
                     {item.summary}
                   </p>
