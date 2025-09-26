@@ -42,6 +42,14 @@ A comprehensive web application for analyzing and summarizing host data from Cen
 - Node.js 16+
 - npm or yarn
 
+### Getting Started
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/your-username/censys_exercise.git
+   cd censys_exercise
+   ```
+
 ### Backend Setup
 
 1. **Create virtual environment**:
