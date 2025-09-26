@@ -632,6 +632,23 @@ CMD ["npm", "start"]
 4. Ensure all tests pass
 5. Submit a pull request with a clear description
 
+## Submission Files
+
+This project submission includes the following files available in the Google Drive folder:
+
+📁 **[Project Submission Folder](https://drive.google.com/drive/folders/1l8aCGP0xO9MP67IsH3mwV6lCAvmIxZM9?usp=sharing)**
+
+### Contents:
+- **📄 README.md** - Complete project documentation (19 KB)
+- **🔗 link to git repo.docx** - Git repository link document (11 KB)  
+- **🎥 video2473772649.mp4** - Demo video showcasing the application (18.1 MB)
+
+### Access Instructions:
+1. Click the link above to access the Google Drive folder
+2. Download any files you need for review
+3. The demo video shows the complete application workflow
+4. The README.md in the folder contains the same comprehensive documentation as this repository
+
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
