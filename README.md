@@ -46,7 +46,7 @@ A comprehensive web application for analyzing and summarizing host data from Cen
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/your-username/censys_exercise.git
+   git clone https://github.com/Praneeth-1312/Censys.git censys_exercise
    cd censys_exercise
    ```
 
