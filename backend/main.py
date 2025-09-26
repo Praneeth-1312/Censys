@@ -447,6 +447,309 @@ def _max_risk(level_a: Optional[str], level_b: Optional[str]) -> str:
     b = _normalize_risk_label(level_b) or "Low"
     return a if order[a] >= order[b] else b
 
+def _format_summary_response(text: str) -> str:
+    """
+    Format the AI response into clean, readable paragraph format.
+    """
+    # First, handle the specific case where we have mixed format
+    # Look for the pattern: "Host: IP\n⚠️ Critical-Risk Host: ..."
+    if 'Host: ' in text and '⚠️' in text and ' - ' in text:
+        # This is the mixed format we're seeing
+        lines = text.split('\n')
+        if len(lines) >= 2 and lines[0].startswith('Host: ') and '⚠️' in lines[1]:
+            # Extract the main content from the second line
+            main_content = lines[1].strip()
+            # Process the main content as single-line
+            return _format_single_line_content(main_content)
+    
+    # Also handle the case where it's all on one line but has the mixed pattern
+    if 'Host: ' in text and '⚠️' in text and ' - ' in text and '\n' not in text:
+        # Find where the main content starts (after "Host: IP")
+        parts = text.split('⚠️', 1)
+        if len(parts) == 2:
+            main_content = '⚠️' + parts[1].strip()
+            return _format_single_line_content(main_content)
+    
+    # Handle multi-line input
+    if '\n' in text:
+        lines = text.split('\n')
+        paragraphs = []
+        current_paragraph = []
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                if current_paragraph:
+                    paragraphs.append(' '.join(current_paragraph))
+                    current_paragraph = []
+                continue
+            
+            # Check if this is a new section
+            if line.startswith('- ') and any(line.startswith(f'- {header}') for header in ['Network:', 'Exposed Services:', 'Critical Vulnerabilities:', 'Threat Intel:', 'Risk Rationale:']):
+                if current_paragraph:
+                    paragraphs.append(' '.join(current_paragraph))
+                    current_paragraph = []
+                current_paragraph.append(line)
+            elif line.startswith('Recommendations:'):
+                if current_paragraph:
+                    paragraphs.append(' '.join(current_paragraph))
+                    current_paragraph = []
+                # Handle recommendations specially
+                rec_content = line.replace('Recommendations:', '').strip()
+                if rec_content:
+                    paragraphs.append(f"Recommendations: {rec_content}")
+                else:
+                    paragraphs.append("Recommendations: See detailed analysis above.")
+            elif line.startswith('- '):
+                # This is a recommendation item
+                if current_paragraph and not any(p.startswith('Recommendations:') for p in paragraphs):
+                    paragraphs.append(' '.join(current_paragraph))
+                    current_paragraph = []
+                rec_item = line[2:].strip()  # Remove "- " prefix
+                if rec_item:
+                    if paragraphs and paragraphs[-1].startswith('Recommendations:'):
+                        paragraphs[-1] += f"; {rec_item}"
+                    else:
+                        paragraphs.append(f"Recommendations: {rec_item}")
+            else:
+                # Regular content
+                current_paragraph.append(line)
+        
+        # Add final paragraph
+        if current_paragraph:
+            paragraphs.append(' '.join(current_paragraph))
+        
+        return "\n\n".join(paragraphs)
+    else:
+        # Single-line input
+        return _format_single_line_content(text)
+
+def format_host_summary(text: str) -> str:
+    """
+    Convert the messy single-line output into beautiful, structured format.
+    Clean Python implementation.
+    """
+    # Handle the specific format we're getting
+    if 'Recommendations:' in text:
+        main_part, recommendations_part = text.split('Recommendations:', 1)
+        main_part = main_part.strip()
+        recommendations_part = recommendations_part.strip()
+        
+        # Parse the main part
+        sections = main_part.split(' - ')
+        
+        if len(sections) > 1:
+            # First section is the header
+            header = sections[0].strip()
+            
+            # Parse each section
+            network_info = []
+            services_info = []
+            vulnerabilities_info = []
+            threat_info = []
+            risk_info = []
+            
+            for section in sections[1:]:
+                section = section.strip()
+                if not section:
+                    continue
+                    
+                if section.startswith('Network:'):
+                    network_info.append(section.replace('Network:', '').strip())
+                elif section.startswith('Exposed Services:'):
+                    services_info.append(section.replace('Exposed Services:', '').strip())
+                elif section.startswith('Critical Vulnerabilities:'):
+                    vulnerabilities_info.append(section.replace('Critical Vulnerabilities:', '').strip())
+                elif section.startswith('Threat Intel:'):
+                    threat_info.append(section.replace('Threat Intel:', '').strip())
+                elif section.startswith('Risk Rationale:'):
+                    risk_info.append(section.replace('Risk Rationale:', '').strip())
+            
+            # Build the formatted output
+            output_lines = [header, ""]  # Header with blank line
+            
+            # Network and Services section
+            if network_info or services_info:
+                output_lines.append("🌐")
+                output_lines.append("NETWORK & SERVICES")
+                if network_info:
+                    output_lines.append(f"• Network: {', '.join(network_info)}")
+                if services_info:
+                    output_lines.append(f"• Exposed Services: {', '.join(services_info)}")
+                output_lines.append("")
+            
+            # Security Assessment section
+            if vulnerabilities_info or threat_info:
+                output_lines.append("🔒")
+                output_lines.append("SECURITY ASSESSMENT")
+                if vulnerabilities_info:
+                    output_lines.append(f"• Critical Vulnerabilities: {', '.join(vulnerabilities_info)}")
+                if threat_info:
+                    output_lines.append(f"• Threat Intelligence: {', '.join(threat_info)}")
+                output_lines.append("")
+            
+            # Risk Analysis section
+            if risk_info:
+                output_lines.append("⚠️")
+                output_lines.append("RISK ANALYSIS")
+                output_lines.append(f"• {', '.join(risk_info)}")
+                output_lines.append("")
+            
+            # Recommendations section
+            if recommendations_part:
+                output_lines.append("📋")
+                output_lines.append("RECOMMENDATIONS")
+                rec_items = [item.strip() for item in recommendations_part.split(';') if item.strip()]
+                for i, rec in enumerate(rec_items, 1):
+                    if rec and not rec.startswith('See detailed analysis'):
+                        output_lines.append(f"{i}. {rec}")
+                output_lines.append("")
+            
+            return "\n".join(output_lines).strip()
+        else:
+            return main_part
+    else:
+        # No recommendations, process normally
+        sections = text.split(' - ')
+        
+        if len(sections) > 1:
+            header = sections[0].strip()
+            
+            # Parse each section
+            network_info = []
+            services_info = []
+            vulnerabilities_info = []
+            threat_info = []
+            risk_info = []
+            
+            for section in sections[1:]:
+                section = section.strip()
+                if not section:
+                    continue
+                    
+                if section.startswith('Network:'):
+                    network_info.append(section.replace('Network:', '').strip())
+                elif section.startswith('Exposed Services:'):
+                    services_info.append(section.replace('Exposed Services:', '').strip())
+                elif section.startswith('Critical Vulnerabilities:'):
+                    vulnerabilities_info.append(section.replace('Critical Vulnerabilities:', '').strip())
+                elif section.startswith('Threat Intel:'):
+                    threat_info.append(section.replace('Threat Intel:', '').strip())
+                elif section.startswith('Risk Rationale:'):
+                    risk_info.append(section.replace('Risk Rationale:', '').strip())
+            
+            # Build the formatted output
+            output_lines = [header, ""]  # Header with blank line
+            
+            # Network and Services section
+            if network_info or services_info:
+                output_lines.append("🌐")
+                output_lines.append("NETWORK & SERVICES")
+                if network_info:
+                    output_lines.append(f"• Network: {', '.join(network_info)}")
+                if services_info:
+                    output_lines.append(f"• Exposed Services: {', '.join(services_info)}")
+                output_lines.append("")
+            
+            # Security Assessment section
+            if vulnerabilities_info or threat_info:
+                output_lines.append("🔒")
+                output_lines.append("SECURITY ASSESSMENT")
+                if vulnerabilities_info:
+                    output_lines.append(f"• Critical Vulnerabilities: {', '.join(vulnerabilities_info)}")
+                if threat_info:
+                    output_lines.append(f"• Threat Intelligence: {', '.join(threat_info)}")
+                output_lines.append("")
+            
+            # Risk Analysis section
+            if risk_info:
+                output_lines.append("⚠️")
+                output_lines.append("RISK ANALYSIS")
+                output_lines.append(f"• {', '.join(risk_info)}")
+                output_lines.append("")
+            
+            return "\n".join(output_lines).strip()
+        else:
+            return text.strip()
+
+def _convert_single_line_to_multiline(text: str) -> str:
+    """
+    Convert single-line text to multi-line by splitting on section markers.
+    """
+    # Try different splitting patterns
+    patterns = [' - ', ' -', '- ']
+    
+    for pattern in patterns:
+        if pattern in text:
+            parts = text.split(pattern)
+            if len(parts) > 1:
+                formatted = parts[0] + '\n'
+                
+                # Process remaining parts
+                for part in parts[1:]:
+                    part = part.strip()
+                    if not part:
+                        continue
+                        
+                    # Check for section headers
+                    if any(part.startswith(header) for header in ['Network:', 'Exposed Services:', 'Critical Vulnerabilities:', 'Threat Intel:', 'Risk Rationale:']):
+                        formatted += '- ' + part + '\n'
+                    elif part.startswith('- '):
+                        formatted += part + '\n'
+                    else:
+                        # This might be a continuation
+                        formatted += '- ' + part + '\n'
+                
+                return formatted.strip()
+    
+    # If no pattern found, try to split on common section markers
+    section_markers = ['Network:', 'Exposed Services:', 'Critical Vulnerabilities:', 'Threat Intel:', 'Risk Rationale:']
+    
+    for marker in section_markers:
+        if marker in text:
+            # Split on the marker and format
+            parts = text.split(marker)
+            if len(parts) > 1:
+                formatted = parts[0].strip() + '\n'
+                
+                for i, part in enumerate(parts[1:], 1):
+                    part = part.strip()
+                    if not part:
+                        continue
+                        
+                    # Find the next section marker
+                    next_marker = None
+                    next_pos = len(part)
+                    for next_m in section_markers:
+                        pos = part.find(next_m)
+                        if pos != -1 and pos < next_pos:
+                            next_pos = pos
+                            next_marker = next_m
+                    
+                    if next_marker:
+                        current_section = part[:next_pos].strip()
+                        remaining = part[next_pos:].strip()
+                    else:
+                        current_section = part
+                        remaining = ""
+                    
+                    # Add the current section
+                    if current_section:
+                        if i == 1:  # First section after split
+                            formatted += '- ' + marker + current_section + '\n'
+                        else:
+                            formatted += '- ' + current_section + '\n'
+                    
+                    # Add remaining content
+                    if remaining:
+                        formatted += remaining + '\n'
+                
+                return formatted.strip()
+    
+    # If no clear pattern, return as is
+    return text
+
+
 async def _generate_summary_text(structured: Dict[str, Any]) -> str:
     # Try Gemini first if configured
     try:
@@ -458,24 +761,36 @@ async def _generate_summary_text(structured: Dict[str, Any]) -> str:
                 genai.configure(api_key=gemini_key)
                 model = genai.GenerativeModel("gemini-1.5-flash")
                 prompt = (
-                    "You are a cybersecurity analyst. Using ONLY the provided host JSON, produce a structured summary in the EXACT format below.\n\n"
-                    "Rules:\n"
-                    "- Be strictly factual; infer protocol/encryption from standard port numbers when service names are missing (e.g., 80→HTTP unencrypted, 443→HTTPS TLS, 22→SSH encrypted). If a field is missing, write 'Unknown'.\n"
-                    "- Use concise wording, 4–8 lines total. Include explicit risk rationale and actionable recommendations.\n"
-                    "- Output plaintext only (no JSON).\n\n"
-                    "Format to follow exactly (replace placeholders with data):\n"
-                    "{Emoji} {Risk}-Risk Host: {IP} ({City}, {CountryCode or Country})\n"
-                    "- Network: {AS Name or Organization or 'Unknown'} (ASN {ASN or 'Unknown'}{, AS Country if available})\n"
-                    "- Exposed Services: {ServiceName (P[, version/vendor/TLS]) list, comma-separated}\n"
-                    "- Critical Vulnerabilities: {CVE list with Severity and CVSS; or 'None'}\n"
-                    "- Threat Intel: {labels and malware families; or 'None'}\n"
-                    "- Risk Rationale: {short reason using CVSS/service count/exploited/malware}\n"
+                    "You are a professional cybersecurity analyst. Using ONLY the provided host JSON, generate a concise, factual security report.\n\n"
+                    "Output requirements:\n"
+                    "- Format the summary as a single line.\n"
+                    "- Use bullet points where appropriate.\n"
+                    "- Follow this exact structure:\n\n"
+                    "⚠️ [Risk Level]-Risk Host: [IP] ([City], [Country])\n"
+                    "- Network: [Organization] (ASN [ASN], AS Country: [Country])\n"
+                    "- Exposed Services:\n"
+                    "  - [ServiceName (Port[, version/vendor/TLS])]\n"
+                    "  - [Next Service]\n"
+                    "- Critical Vulnerabilities:\n"
+                    "  - [CVE (Severity, CVSS)]\n"
+                    "  - [Next CVE]\n"
+                    "- Threat Intel:\n"
+                    "  - [Labels or Malware families]\n"
+                    "- Risk Rationale:\n"
+                    "  - [Short factual reason using CVSS, service count, or threats]\n"
                     "Recommendations:\n"
-                    "- {Recommendation 1}\n"
-                    "- {Recommendation 2 (optional)}\n"
-                    "- {Recommendation 3 (optional)}\n\n"
+                    "  - [Recommendation 1]\n"
+                    "  - [Recommendation 2 (optional)]\n"
+                    "  - [Recommendation 3 (optional)]\n\n"
+                    "- Infer protocols/encryption from standard ports if missing (e.g., 22→SSH encrypted, 80→HTTP unencrypted, 443→HTTPS TLS).\n"
+                    "- If a field is missing, write 'Unknown'.\n"
+                    "- Be strictly factual; avoid speculation or subjective language.\n"
+                    "- Keep the report concise (4–8 lines plus recommendations).\n\n"
                     f"Host JSON:\n{json.dumps(structured, ensure_ascii=False)}"
                 )
+
+
+
                 print("Calling Gemini API...")
                 resp = model.generate_content(prompt)
                 txt = (resp.text or "").strip()
@@ -484,6 +799,8 @@ async def _generate_summary_text(structured: Dict[str, Any]) -> str:
                     # Remove "Host: " prefix if it exists
                     if txt.startswith("Host: "):
                         txt = txt[6:]  # Remove "Host: " (6 characters)
+                    # Ensure proper formatting with line breaks
+                    txt = format_host_summary(txt)
                     return txt
             except Exception as e:
                 print("Gemini error:", e)
@@ -499,20 +816,12 @@ async def _generate_summary_text(structured: Dict[str, Any]) -> str:
                 from openai import OpenAI
                 client = OpenAI(api_key=api_key)
                 messages = [
-                    {"role": "system", "content": "You are a cybersecurity analyst. Be strictly factual and concise."},
+                    {"role": "system", "content": "You are a cybersecurity analyst. Create single-line security summaries with specific format."},
                     {"role": "user", "content": (
-                        "Using ONLY the provided host JSON, produce an executive/actionable summary in 4–8 lines max in the EXACT format:\n\n"
-                        "{Emoji} {Risk}-Risk Host: {IP} ({City}, {CountryCode or Country})\n"
-                        "- Network: {AS Name or Organization or 'Unknown'} (ASN {ASN or 'Unknown'}{, AS Country if available})\n"
-                        "- Exposed Services: {ServiceName (P[, version/vendor/TLS]) list, comma-separated}\n"
-                        "- Critical Vulnerabilities: {CVE list with Severity and CVSS; or 'None'}\n"
-                        "- Threat Intel: {labels and malware families; or 'None'}\n"
-                        "- Risk Rationale: {short reason using CVSS/service count/exploited/malware}\n"
-                        "Recommendations:\n"
-                        "- {Recommendation 1}\n"
-                        "- {Recommendation 2 (optional)}\n"
-                        "- {Recommendation 3 (optional)}\n\n"
-                        "Compute Risk based on CVEs (CVSS≥9→High/Critical), malware/C2 (Critical), and service count.\n\n"
+                        "Using ONLY the provided host JSON, produce a concise security summary.\n\n"
+                        "Output format: Create a single-line summary with this EXACT structure:\n"
+                        "⚠️ [Risk Level]-Risk Host: [IP] ([City], [Country]) - Network: [Organization] (ASN [ASN], AS Country: [Country]) - Exposed Services: [Services] - Critical Vulnerabilities: [CVEs] - Threat Intel: [Threats] - Risk Rationale: [Rationale] Recommendations: [Recommendations]\n\n"
+                        "IMPORTANT: Output must be a single line with all sections separated by ' - '. Include all information in this exact format.\n\n"
                         f"Host JSON:\n{json.dumps(structured, ensure_ascii=False)}"
                     )},
                 ]
@@ -522,6 +831,8 @@ async def _generate_summary_text(structured: Dict[str, Any]) -> str:
                     # Remove "Host: " prefix if it exists
                     if txt.startswith("Host: "):
                         txt = txt[6:]  # Remove "Host: " (6 characters)
+                    # Ensure proper formatting with line breaks
+                    txt = format_host_summary(txt)
                     return txt
             except Exception:
                 pass
@@ -687,17 +998,20 @@ async def _generate_summary_text(structured: Dict[str, Any]) -> str:
             seen.add(r)
     recs = recs[:4]
 
-    lines = [
-        risk_header,
-        net_line,
-        exposed_line,
-        vuln_line,
-        threat_line,
-        rationale_line,
-        "Recommendations:",
-    ] + recs
-
-    return "\n".join(lines)
+    # Create single-line format that our formatter expects
+    recommendations_text = "; ".join(recs) if recs else "See detailed analysis above."
+    
+    # Ensure we have the ⚠️ symbol and proper format
+    if not risk_header.startswith('⚠️'):
+        risk_header = f"⚠️ {risk_header}"
+    
+    # Create the complete single-line format with all information
+    fallback_text = f"{risk_header} - Network: {asn_name_or_org} (ASN {asn}" + (f", AS Country: {asn_country}" if isinstance(asn_country, str) and asn_country else "") + f") - Exposed Services: {', '.join(exposed_list[:10]) if exposed_list else 'None'} - Critical Vulnerabilities: {', '.join(cve_items[:10]) if cve_items else 'None'} - Threat Intel: {', '.join(labels) if labels else 'None'} - Risk Rationale: {reason_text if reason_text else f'Exposed services: {num_services}'} Recommendations: {recommendations_text}"
+    
+    print("DEBUG: Applying clean Python formatting to fallback response")
+    formatted = format_host_summary(fallback_text)
+    print(f"DEBUG: Formatted result: {formatted[:100]}...")
+    return formatted
 
 @app.post("/summarize_host/", response_model=HostSummary)
 async def summarize_host(payload: SummarizeRequest):
@@ -907,3 +1221,20 @@ def get_stats():
         "max_vulnerabilities": max(vulnerability_counts) if vulnerability_counts else 0,
         "upload_timestamp": UPLOAD_TIMESTAMP
     }
+
+@app.post("/reset/")
+def reset_data():
+    """Reset/clear all uploaded data"""
+    global HOSTS, UPLOAD_TIMESTAMP
+    HOSTS = []
+    UPLOAD_TIMESTAMP = None
+    return {
+        "message": "Data reset successfully",
+        "total_hosts": 0,
+        "upload_timestamp": None
+    }
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+

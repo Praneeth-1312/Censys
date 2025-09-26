@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import axios from "axios";
+import { handleApiError } from "./utils";
 
 function Summarizer({ hasDataset = false }) {
   const [host, setHost] = useState("");
@@ -7,8 +8,6 @@ function Summarizer({ hasDataset = false }) {
   const [allSummaries, setAllSummaries] = useState([]);
   const [loading, setLoading] = useState(false);
   const [batchLoading, setBatchLoading] = useState(false);
-  const [showResetMessage, setShowResetMessage] = useState(false);
-
   // Reset all state when component mounts (when new dataset is uploaded)
   React.useEffect(() => {
     setHost("");
@@ -16,12 +15,6 @@ function Summarizer({ hasDataset = false }) {
     setAllSummaries([]);
     setLoading(false);
     setBatchLoading(false);
-    
-    // Show reset message briefly
-    setShowResetMessage(true);
-    const timer = setTimeout(() => setShowResetMessage(false), 2000);
-    
-    return () => clearTimeout(timer);
   }, []);
 
   const handleSubmit = async (e) => {
@@ -34,7 +27,7 @@ function Summarizer({ hasDataset = false }) {
       setSummary(res.data.summary);
     } catch (err) {
       console.error(err);
-      setSummary("Error fetching summary.");
+      setSummary(handleApiError(err, "Error fetching summary."));
     }
     setLoading(false);
   };
@@ -47,7 +40,7 @@ function Summarizer({ hasDataset = false }) {
       setAllSummaries(res.data.summaries);
     } catch (err) {
       console.error(err);
-      setAllSummaries([{ ip: "Error", summary: "Error fetching summaries for all hosts." }]);
+      setAllSummaries([{ ip: "Error", summary: handleApiError(err, "Error fetching summaries for all hosts.") }]);
     }
     setBatchLoading(false);
   };
@@ -56,24 +49,6 @@ function Summarizer({ hasDataset = false }) {
   return (
     <div style={{ padding: "0", fontFamily: "inherit" }}>
       {/* Reset Message */}
-      {showResetMessage && (
-        <div style={{ 
-          marginBottom: "24px", 
-          padding: "12px 16px", 
-          background: "linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)", 
-          color: "#1e40af", 
-          borderRadius: "8px",
-          fontSize: "14px",
-          fontWeight: "500",
-          border: "1px solid #93c5fd",
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-          animation: "fadeIn 0.3s ease-in"
-        }}>
-          🔄 Summarizer reset - ready for new dataset
-        </div>
-      )}
       
       {/* Individual Host Summary */}
       <div style={{ 

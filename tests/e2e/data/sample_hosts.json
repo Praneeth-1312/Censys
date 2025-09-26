@@ -1,0 +1,60 @@
+[
+  {
+    "ip": "192.168.1.100",
+    "location": {
+      "country": "United States",
+      "city": "New York",
+      "region": "NY"
+    },
+    "services": [
+      {
+        "port": 22,
+        "service": "SSH",
+        "product": "openssh 8.2",
+        "banner": "SSH-2.0-OpenSSH_8.2"
+      },
+      {
+        "port": 80,
+        "service": "HTTP",
+        "product": "nginx 1.18.0",
+        "banner": "nginx/1.18.0"
+      }
+    ],
+    "vulnerabilities": [
+      {
+        "id": "CVE-2021-1234",
+        "severity": "high",
+        "score": 7.5,
+        "description": "Remote code execution vulnerability"
+      }
+    ],
+    "risk_level": "High",
+    "labels": ["WEB_SERVER", "SSH_SERVER"]
+  },
+  {
+    "ip": "192.168.1.101",
+    "location": {
+      "country": "United States",
+      "city": "Los Angeles",
+      "region": "CA"
+    },
+    "services": [
+      {
+        "port": 443,
+        "service": "HTTPS",
+        "product": "Apache 2.4.41",
+        "banner": "Apache/2.4.41"
+      }
+    ],
+    "vulnerabilities": [
+      {
+        "id": "CVE-2021-5678",
+        "severity": "medium",
+        "score": 5.2,
+        "description": "Information disclosure vulnerability"
+      }
+    ],
+    "risk_level": "Medium",
+    "labels": ["WEB_SERVER"]
+  }
+]

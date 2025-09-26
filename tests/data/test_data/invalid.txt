@@ -1,3 +1,0 @@
-This is not a JSON file
-It contains plain text
-And should be rejected by the validation

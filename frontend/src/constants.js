@@ -10,6 +10,7 @@ export const API_ENDPOINTS = {
   HEALTH_CHECK: `${API_BASE_URL}/health`,
   CHECK_KEY: `${API_BASE_URL}/check_key/`,
   STATS: `${API_BASE_URL}/stats/`,
+  RESET: `${API_BASE_URL}/reset/`,
 };
 
 // UI Constants
@@ -72,7 +73,6 @@ export const MESSAGES = {
   SUMMARIZER: {
     NO_DATASET_TITLE: 'Host Summarization Ready',
     NO_DATASET_MESSAGE: 'Upload a JSON dataset above to enable host summarization features',
-    RESET_MESSAGE: '🔄 Summarizer reset - ready for new dataset',
     INDIVIDUAL_TITLE: 'Summarize Individual Host',
     INDIVIDUAL_DESCRIPTION: 'Enter a specific IP address to get detailed analysis',
     BATCH_TITLE: 'Summarize All Hosts',

@@ -39,6 +39,7 @@ export const apiClient = {
   healthCheck: async () => {
     const response = await axios.get(API_ENDPOINTS.HEALTH_CHECK, {
       timeout: 5000,
+      params: { _t: Date.now() }, // Cache busting
     });
     return response.data;
   },
@@ -46,6 +47,7 @@ export const apiClient = {
   checkApiKeys: async () => {
     const response = await axios.get(API_ENDPOINTS.CHECK_KEY, {
       timeout: 5000,
+      params: { _t: Date.now() }, // Cache busting
     });
     return response.data;
   },
@@ -53,6 +55,14 @@ export const apiClient = {
   getStats: async () => {
     const response = await axios.get(API_ENDPOINTS.STATS, {
       timeout: 10000,
+      params: { _t: Date.now() }, // Cache busting
+    });
+    return response.data;
+  },
+
+  resetData: async () => {
+    const response = await axios.post(API_ENDPOINTS.RESET, {}, {
+      timeout: 5000,
     });
     return response.data;
   },

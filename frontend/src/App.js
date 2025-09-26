@@ -10,10 +10,11 @@ function App() {
   const [uploadedData, setUploadedData] = useState(null);
   const [summarizerKey, setSummarizerKey] = useState(0);
   const [uploadResetKey, setUploadResetKey] = useState(0);
+  const [statusPanelKey, setStatusPanelKey] = useState(0);
   const [backendError, setBackendError] = useState(null);
   const [showStatusPanel, setShowStatusPanel] = useState(false);
 
-  const handleUploadAttempt = useCallback(() => {
+  const handleUploadAttempt = useCallback(async () => {
     // Clear previous data when user explicitly starts new upload
     setDatasetUploaded(false);
     setUploadedData(null);
@@ -21,6 +22,16 @@ function App() {
     setSummarizerKey(prev => prev + 1);
     // Force Upload component to reset by changing its key
     setUploadResetKey(prev => prev + 1);
+    // Force StatusPanel to reset by changing its key
+    setStatusPanelKey(prev => prev + 1);
+    
+    // Clear backend data
+    try {
+      await apiClient.resetData();
+    } catch (error) {
+      console.warn('Failed to reset backend data:', error);
+      // Don't show error to user as this is not critical
+    }
   }, []);
 
   const handleUploadSuccess = useCallback((data) => {
@@ -30,13 +41,23 @@ function App() {
     setSummarizerKey(prev => prev + 1);
   }, []);
 
-  const handleCancelUpload = useCallback(() => {
+  const handleCancelUpload = useCallback(async () => {
     setDatasetUploaded(false);
     setUploadedData(null);
     // Force Summarizer to reset by changing its key
     setSummarizerKey(prev => prev + 1);
     // Force Upload component to reset by changing its key
     setUploadResetKey(prev => prev + 1);
+    // Force StatusPanel to reset by changing its key
+    setStatusPanelKey(prev => prev + 1);
+    
+    // Clear backend data
+    try {
+      await apiClient.resetData();
+    } catch (error) {
+      console.warn('Failed to reset backend data:', error);
+      // Don't show error to user as this is not critical
+    }
   }, []);
 
   // Check backend health on app load
@@ -120,7 +141,7 @@ function App() {
             padding: '20px',
             boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
           }}>
-            <StatusPanel />
+            <StatusPanel key={statusPanelKey} />
           </div>
         )}
 

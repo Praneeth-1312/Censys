@@ -14,7 +14,15 @@ const StatusPanel = ({ className, style }) => {
       try {
         setLoading(true);
         setError(null);
+        
+        // Reset all state first
+        setHealthStatus(null);
+        setApiKeys(null);
+        setStats(null);
 
+        // Add cache-busting timestamp
+        const timestamp = Date.now();
+        
         const [health, keys, statsData] = await Promise.allSettled([
           apiClient.healthCheck(),
           apiClient.checkApiKeys(),
@@ -43,7 +51,7 @@ const StatusPanel = ({ className, style }) => {
 
   if (loading) {
     return (
-      <div className={className} style={style}>
+      <div className={className} style={style} data-testid="status-panel">
         <div style={{ 
           padding: '16px', 
           textAlign: 'center', 
@@ -58,7 +66,7 @@ const StatusPanel = ({ className, style }) => {
 
   if (error) {
     return (
-      <div className={className} style={style}>
+      <div className={className} style={style} data-testid="status-panel">
         <Alert type="error">
           {error}
         </Alert>
@@ -67,7 +75,7 @@ const StatusPanel = ({ className, style }) => {
   }
 
   return (
-    <div className={className} style={style}>
+    <div className={className} style={style} data-testid="status-panel">
       {/* Health Status */}
       <div style={{ marginBottom: '16px' }}>
         <div style={{

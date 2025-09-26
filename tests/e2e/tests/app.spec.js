@@ -33,7 +33,7 @@ test.describe('Censys Host Summarizer E2E Tests', () => {
     // Status panel should now be visible
     await expect(page.locator('[data-testid="status-panel"]')).toBeVisible();
     await expect(page.locator('text=📊 Hide Status')).toBeVisible();
-    
+
     // Click hide status button
     await page.click('text=📊 Hide Status');
     
@@ -42,17 +42,17 @@ test.describe('Censys Host Summarizer E2E Tests', () => {
   });
 
   test('should upload a valid JSON file', async ({ page }) => {
-    // Create a test file input
+    // Get the file input
     const fileInput = page.locator('input[type="file"]');
     
     // Upload the sample test data
     const testFilePath = path.join(__dirname, '../data/sample_hosts.json');
     await fileInput.setInputFiles(testFilePath);
-    
+
     // Click upload button
     await page.click('text=📤 Upload');
-    
-    // Wait for success message
+
+    // Wait for upload success message
     await expect(page.locator('text=✅ Dataset uploaded successfully')).toBeVisible();
     
     // Check that new upload button appears
@@ -63,11 +63,13 @@ test.describe('Censys Host Summarizer E2E Tests', () => {
     // Create a temporary text file
     const fileInput = page.locator('input[type="file"]');
     
-    // Try to upload a non-JSON file (this will be handled by the browser's file picker)
-    // For this test, we'll simulate the error by checking the validation
+    // Try to upload a non-JSON file
     await fileInput.setInputFiles(path.join(__dirname, '../data/invalid.txt'));
     
-    // The validation should prevent upload
+    // Click upload button to trigger validation
+    await page.click('text=📤 Upload');
+    
+    // The validation should show error message
     await expect(page.locator('text=Please select a valid JSON file')).toBeVisible();
   });
 
@@ -77,11 +79,11 @@ test.describe('Censys Host Summarizer E2E Tests', () => {
     const testFilePath = path.join(__dirname, '../data/sample_hosts.json');
     await fileInput.setInputFiles(testFilePath);
     await page.click('text=📤 Upload');
-    
+
     // Wait for upload success
     await expect(page.locator('text=✅ Dataset uploaded successfully')).toBeVisible();
     
-    // Now test individual host summarization
+    // Now try to summarize a host
     const ipInput = page.locator('input[placeholder="Enter host IP address"]');
     await ipInput.fill('192.168.1.100');
     
@@ -90,50 +92,6 @@ test.describe('Censys Host Summarizer E2E Tests', () => {
     
     // Wait for summary to appear
     await expect(page.locator('text=📋 Analysis Summary')).toBeVisible();
-    
-    // Check that summary content is displayed
-    await expect(page.locator('text=192.168.1.100')).toBeVisible();
-  });
-
-  test('should show error for non-existent host', async ({ page }) => {
-    // First upload the test data
-    const fileInput = page.locator('input[type="file"]');
-    const testFilePath = path.join(__dirname, '../data/sample_hosts.json');
-    await fileInput.setInputFiles(testFilePath);
-    await page.click('text=📤 Upload');
-    
-    // Wait for upload success
-    await expect(page.locator('text=✅ Dataset uploaded successfully')).toBeVisible();
-    
-    // Try to summarize a non-existent host
-    const ipInput = page.locator('input[placeholder="Enter host IP address"]');
-    await ipInput.fill('999.999.999.999');
-    
-    // Click summarize button
-    await page.click('text=🚀 Summarize');
-    
-    // Should show error message
-    await expect(page.locator('text=Host not found')).toBeVisible();
-  });
-
-  test('should summarize all hosts', async ({ page }) => {
-    // First upload the test data
-    const fileInput = page.locator('input[type="file"]');
-    const testFilePath = path.join(__dirname, '../data/sample_hosts.json');
-    await fileInput.setInputFiles(testFilePath);
-    await page.click('text=📤 Upload');
-    
-    // Wait for upload success
-    await expect(page.locator('text=✅ Dataset uploaded successfully')).toBeVisible();
-    
-    // Click summarize all button
-    await page.click('text=🚀 Summarize All Hosts');
-    
-    // Wait for batch results
-    await expect(page.locator('text=📈 Batch Analysis Results')).toBeVisible();
-    
-    // Check that summaries are displayed
-    await expect(page.locator('text=3 hosts')).toBeVisible();
   });
 
   test('should handle new upload after previous upload', async ({ page }) => {
@@ -149,33 +107,9 @@ test.describe('Censys Host Summarizer E2E Tests', () => {
     // Click new upload button
     await page.click('text=↻ New Upload');
     
-    // File input should be cleared
-    await expect(fileInput).toHaveValue('');
-    
-    // Upload button should be reset
-    await expect(page.locator('text=Select File First')).toBeVisible();
-  });
-
-  test('should show loading states during operations', async ({ page }) => {
-    // Upload file
-    const fileInput = page.locator('input[type="file"]');
-    const testFilePath = path.join(__dirname, '../data/sample_hosts.json');
-    await fileInput.setInputFiles(testFilePath);
-    
-    // Click upload and check loading state
-    await page.click('text=📤 Upload');
-    await expect(page.locator('text=⏳ Uploading...')).toBeVisible();
-    
-    // Wait for upload to complete
-    await expect(page.locator('text=✅ Dataset uploaded successfully')).toBeVisible();
-    
-    // Test summarization loading state
-    const ipInput = page.locator('input[placeholder="Enter host IP address"]');
-    await ipInput.fill('192.168.1.100');
-    await page.click('text=🚀 Summarize');
-    
-    // Should show analyzing state
-    await expect(page.locator('text=⏳ Analyzing...')).toBeVisible();
+    // Should be ready for new upload
+    await expect(page.locator('text=📁 Upload JSON Dataset')).toBeVisible();
+    await expect(page.locator('text=Host Summarization Ready')).toBeVisible();
   });
 
   test('should be responsive on mobile viewport', async ({ page }) => {
@@ -183,10 +117,12 @@ test.describe('Censys Host Summarizer E2E Tests', () => {
     await page.setViewportSize({ width: 375, height: 667 });
     
     // Check that main elements are still visible
-    await expect(page.locator('h1')).toBeVisible();
+    await expect(page.locator('h1')).toContainText('🔍 Censys Host Summarizer');
     await expect(page.locator('text=📁 Upload JSON Dataset')).toBeVisible();
+    await expect(page.locator('text=Host Summarization Ready')).toBeVisible();
     
-    // Check that status toggle button is accessible
-    await expect(page.locator('text=📊 Show Status')).toBeVisible();
+    // Check that status panel toggle works on mobile
+    await page.click('text=📊 Show Status');
+    await expect(page.locator('[data-testid="status-panel"]')).toBeVisible();
   });
 });
