@@ -54,25 +54,31 @@ A comprehensive web application for analyzing and summarizing host data from Cen
 
 1. **Create virtual environment**:
    ```bash
-   cd backend
    python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+   - **On Windows**: `venv\Scripts\activate`
+   - **On macOS/Linux**: `source venv/bin/activate`
+
+2. **Upgrade pip** (recommended):
+   ```bash
+   python -m pip install --upgrade pip
    ```
 
-2. **Install dependencies**:
+3. **Install dependencies**:
    ```bash
    pip install -r requirements.txt
    ```
 
-3. **Set up environment variables** (optional):
+4. **Set up environment variables** (optional):
    ```bash
    # Create .env file in backend directory
    GEMINI_API_KEY=your_gemini_api_key_here
    OPENAI_API_KEY=your_openai_api_key_here
    ```
 
-4. **Run the backend**:
+5. **Run the backend**:
    ```bash
+   cd backend
    python -m uvicorn main:app --reload --port 8000
    ```
 
@@ -92,6 +98,28 @@ The backend will be available at `http://localhost:8000` with automatic API docu
    ```
 
 The frontend will be available at `http://localhost:3000`.
+
+## Troubleshooting
+
+### Common Issues
+
+1. **"No such file or directory: requirements.txt"**:
+   - Make sure you're in the root project directory (`censys_exercise`) before running `pip install -r requirements.txt`
+   - The requirements.txt file should be in the root folder
+
+2. **"No module named 'fastapi'"**:
+   - Ensure you've activated the virtual environment: `venv\Scripts\activate` (Windows) or `source venv/bin/activate` (macOS/Linux)
+   - Upgrade pip: `python -m pip install --upgrade pip`
+   - Reinstall dependencies: `pip install -r requirements.txt`
+
+3. **Version conflicts**:
+   - If you encounter version conflicts, try: `pip install --upgrade -r requirements.txt`
+   - Or create a fresh virtual environment and install dependencies
+
+4. **Windows-specific commands**:
+   - Use `dir` instead of `ls` to list files
+   - Use `cd` instead of `pwd` to see current directory
+   - Use `venv\Scripts\activate` to activate virtual environment
 
 ## Usage
 
