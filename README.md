@@ -283,10 +283,276 @@ censys_exercise/
 
 ### Adding New Features
 
-1. **Backend**: Add new endpoints in `main.py` with proper validation and error handling
-2. **Frontend**: Create new components in `src/components/` and update `App.js`
-3. **Tests**: Add corresponding tests in the `tests/` directory structure
-4. **Documentation**: Update this README with new features and API changes
+#### 1. Multi-file Dataset Support with Pagination
+
+**Backend Implementation**:
+- Add new endpoints in `main.py`:
+  ```python
+  @app.post("/upload_multiple_datasets/")
+  async def upload_multiple_datasets(files: List[UploadFile]):
+      """Upload and process multiple JSON dataset files."""
+      # Implementation for handling multiple files
+      # Store datasets with unique IDs and metadata
+  
+  @app.get("/get_datasets/")
+  async def get_datasets(page: int = 1, limit: int = 10):
+      """Get paginated list of uploaded datasets."""
+      # Return paginated dataset metadata
+  
+  @app.get("/get_dataset/{dataset_id}/hosts/")
+  async def get_dataset_hosts(dataset_id: str, page: int = 1, limit: int = 50):
+      """Get paginated hosts from a specific dataset."""
+      # Return paginated host data
+  ```
+
+- Add Pydantic models for pagination:
+  ```python
+  class PaginatedResponse(BaseModel):
+      data: List[Any]
+      total: int
+      page: int
+      limit: int
+      total_pages: int
+  ```
+
+**Frontend Implementation**:
+- Create `MultiFileUpload.js` component for drag-and-drop multiple file upload
+- Add `DatasetList.js` component with pagination controls
+- Implement `PaginationControls.js` reusable component
+- Update `App.js` state to manage multiple datasets and pagination
+
+#### 2. Enhanced Visualization Dashboards for Vulnerabilities and Risks
+
+**Backend Implementation**:
+- Add visualization data endpoints:
+  ```python
+  @app.get("/vulnerability_stats/")
+  async def get_vulnerability_stats():
+      """Get vulnerability statistics for dashboard."""
+      # Aggregate CVE data, severity distribution, etc.
+  
+  @app.get("/risk_distribution/")
+  async def get_risk_distribution():
+      """Get risk level distribution across hosts."""
+      # Calculate risk level percentages
+  
+  @app.get("/service_exposure_analysis/")
+  async def get_service_exposure():
+      """Get service exposure analysis."""
+      # Most common services, ports, versions
+  ```
+
+**Frontend Implementation**:
+- Install charting library: `npm install recharts`
+- Create `VulnerabilityDashboard.js` with charts:
+  - CVE severity pie chart
+  - Risk level distribution bar chart
+  - Service exposure heatmap
+  - Timeline of vulnerabilities
+- Add `RiskAnalysis.js` component with:
+  - Risk trend over time
+  - Geographic risk distribution
+  - Top vulnerable services
+
+#### 3. Caching Layer for Faster Repeated Summarization
+
+**Backend Implementation**:
+- Add Redis caching (install: `pip install redis`):
+  ```python
+  import redis
+  import json
+  from functools import wraps
+  
+  redis_client = redis.Redis(host='localhost', port=6379, db=0)
+  
+  def cache_result(expiry_seconds=3600):
+      def decorator(func):
+          @wraps(func)
+          async def wrapper(*args, **kwargs):
+              cache_key = f"{func.__name__}:{hash(str(args) + str(kwargs))}"
+              cached = redis_client.get(cache_key)
+              if cached:
+                  return json.loads(cached)
+              result = await func(*args, **kwargs)
+              redis_client.setex(cache_key, expiry_seconds, json.dumps(result))
+              return result
+          return wrapper
+      return decorator
+  
+  @cache_result(expiry_seconds=1800)  # 30 minutes
+  async def summarize_host(host_data):
+      # Existing summarization logic
+  ```
+
+- Add cache management endpoints:
+  ```python
+  @app.delete("/clear_cache/")
+  async def clear_cache():
+      """Clear all cached summaries."""
+      redis_client.flushdb()
+      return {"message": "Cache cleared"}
+  
+  @app.get("/cache_stats/")
+  async def get_cache_stats():
+      """Get cache statistics."""
+      return {
+          "keys": redis_client.dbsize(),
+          "memory_usage": redis_client.memory_usage()
+      }
+  ```
+
+#### 4. Integration with External Threat Intelligence APIs
+
+**Backend Implementation**:
+- Add threat intelligence service:
+  ```python
+  class ThreatIntelligenceService:
+      def __init__(self):
+          self.virustotal_api_key = os.getenv("VIRUSTOTAL_API_KEY")
+          self.shodan_api_key = os.getenv("SHODAN_API_KEY")
+          self.abuseipdb_api_key = os.getenv("ABUSEIPDB_API_KEY")
+      
+      async def check_ip_reputation(self, ip_address):
+          """Check IP reputation across multiple sources."""
+          results = {}
+          # VirusTotal check
+          # Shodan enrichment
+          # AbuseIPDB reputation
+          return results
+      
+      async def get_malware_indicators(self, ip_address):
+          """Get malware indicators for IP."""
+          # Check against known IOCs
+          return indicators
+  ```
+
+- Add threat intelligence endpoints:
+  ```python
+  @app.get("/threat_intel/{ip_address}")
+  async def get_threat_intelligence(ip_address: str):
+      """Get threat intelligence for IP address."""
+      ti_service = ThreatIntelligenceService()
+      return await ti_service.check_ip_reputation(ip_address)
+  
+  @app.post("/enrich_hosts/")
+  async def enrich_hosts_with_ti(hosts: List[str]):
+      """Enrich multiple hosts with threat intelligence."""
+      # Batch process threat intelligence lookup
+  ```
+
+**Frontend Implementation**:
+- Create `ThreatIntelligencePanel.js` component
+- Add threat intelligence indicators to host summaries
+- Implement `ThreatScore.js` component for visual threat scoring
+
+#### 5. User Authentication and Role-based Access Control
+
+**Backend Implementation**:
+- Add authentication dependencies:
+  ```python
+  pip install python-jose[cryptography] passlib[bcrypt] python-multipart
+  ```
+
+- Create authentication system:
+  ```python
+  from jose import JWTError, jwt
+  from passlib.context import CryptContext
+  from datetime import datetime, timedelta
+  
+  pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+  
+  class UserManager:
+      def create_user(self, username: str, password: str, role: str):
+          # Create user with hashed password
+      
+      def authenticate_user(self, username: str, password: str):
+          # Verify credentials
+      
+      def create_access_token(self, data: dict):
+          # Generate JWT token
+  
+  @app.post("/auth/login")
+  async def login(username: str, password: str):
+      """Authenticate user and return JWT token."""
+  
+  @app.post("/auth/register")
+  async def register(username: str, password: str, role: str = "user"):
+      """Register new user."""
+  ```
+
+- Add role-based access control:
+  ```python
+  def require_role(required_role: str):
+      def decorator(func):
+          @wraps(func)
+          async def wrapper(*args, **kwargs):
+              # Check user role from JWT token
+              # Allow/deny access based on role
+          return wrapper
+      return decorator
+  
+  @app.get("/admin/stats/")
+  @require_role("admin")
+  async def get_admin_stats():
+      """Admin-only endpoint for system statistics."""
+  ```
+
+**Frontend Implementation**:
+- Create authentication components:
+  - `LoginForm.js`
+  - `RegisterForm.js`
+  - `ProtectedRoute.js`
+  - `UserProfile.js`
+- Add role-based UI rendering
+- Implement JWT token management
+- Add logout functionality
+
+#### Testing for New Features
+
+**Backend Tests**:
+```python
+# tests/backend/test_new_features.py
+def test_multi_file_upload():
+    """Test multiple file upload functionality."""
+    
+def test_pagination():
+    """Test pagination for datasets and hosts."""
+    
+def test_caching():
+    """Test caching layer functionality."""
+    
+def test_threat_intelligence():
+    """Test threat intelligence API integration."""
+    
+def test_authentication():
+    """Test user authentication and authorization."""
+```
+
+**Frontend Tests**:
+```javascript
+// frontend/src/__tests__/NewFeatures.test.js
+describe('MultiFileUpload', () => {
+  test('handles multiple file selection');
+  test('shows upload progress');
+});
+
+describe('VulnerabilityDashboard', () => {
+  test('renders charts correctly');
+  test('updates on data change');
+});
+```
+
+**E2E Tests**:
+```javascript
+// tests/e2e/tests/new-features.spec.js
+test('complete multi-file workflow', async ({ page }) => {
+  // Test full multi-file upload and analysis workflow
+});
+
+test('dashboard visualization', async ({ page }) => {
+  // Test dashboard rendering and interactions
+});
+```
 
 ### Code Style
 - **Backend**: Follow PEP 8 with type hints and docstrings
