@@ -200,6 +200,9 @@ async def upload_dataset(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 def _find_host_by_ip(ip: str) -> Optional[Dict[str, Any]]:
+    # Trim the search IP to handle spaces
+    search_ip = ip.strip()
+    
     for host in HOSTS:
         if not isinstance(host, dict):
             continue
@@ -209,7 +212,9 @@ def _find_host_by_ip(ip: str) -> Optional[Dict[str, Any]]:
             host.get("ipv4"),
             host.get("ipv6"),
         ]
-        if ip in [v for v in values if isinstance(v, str)]:
+        # Trim all values before comparison to handle spaces in dataset
+        trimmed_values = [v.strip() if isinstance(v, str) else v for v in values]
+        if search_ip in trimmed_values:
             return host
     return None
 
